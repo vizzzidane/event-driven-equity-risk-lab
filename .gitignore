@@ -5,8 +5,8 @@ __pycache__/
 
 data/raw/
 data/processed/
-results/*.csv
-results/*.parquet
+
+results/
 
 .env
 .DS_Store
