@@ -4,35 +4,31 @@
 
 This project studies whether large stock-level abnormal price-volume events create persistent post-event abnormal returns. The research begins with a broad event-study framework, then narrows into a specific finding: negative abnormal price-volume events tend to reverse over a medium-term horizon.
 
-The strongest current result is a negative-event reversal strategy that buys after large negative abnormal price-volume events and holds for around 30 trading days. The strategy is evaluated using SPY-adjusted abnormal returns, transaction costs, placebo tests, sensitivity analysis, and walk-forward validation.
+The initial MVP used 10 large-cap stocks. The project was later expanded to an 88-stock liquid US equity universe. The expanded universe produced a much larger event panel, increasing the sample from 1,448 events to 12,266 events. The signal weakened in magnitude after expansion, but the negative-event reversal pattern remained statistically meaningful.
 
-In the optimized walk-forward test from 2018 to 2025, the strategy produced:
+The strongest current expanded-universe result is a negative-event reversal strategy with global trade pacing. The strategy buys after large negative abnormal price-volume events, holds for 30 trading days, uses SPY-adjusted abnormal returns, includes 5 bps per side transaction costs, caps positions at 5 concurrent trades, and requires at least 10 calendar days between new trades globally.
 
-| Metric | Result |
-|---|---:|
-| Total abnormal return | 140.63% |
-| Annualized abnormal Sharpe | 1.03 |
-| Max abnormal drawdown | -10.71% |
-| Trades | 254 |
-| Win rate | 57.09% |
+Under this expanded-universe pacing rule, the strategy produced a 141.67% total abnormal return, 0.77 annualized abnormal Sharpe, -14.19% max abnormal drawdown, and 77.10% average gross exposure.
 
-The result is not presented as a universal stock-market anomaly. The effect is asymmetric, heterogeneous across tickers, weaker in stress/repricing years, and sensitive to very high transaction costs. The current evidence supports a narrower conclusion: negative abnormal price-volume shocks often behave like temporary overreactions, but some represent genuine repricing.
+The result is not presented as a universal stock-market anomaly. The project finds that the effect is asymmetric, heterogeneous across tickers, weaker in some periods, sensitive to costs, and vulnerable to event clustering. The current evidence supports a narrower conclusion: negative abnormal price-volume shocks often behave like temporary overreactions, but some represent genuine repricing and should not be treated as mean-reversion opportunities.
 
 ## 1. Research Question
 
 The central research question is:
 
-> When do equity events produce tradable post-event abnormal returns, and when does the apparent signal disappear after transaction costs, placebo baselines, parameter sensitivity, and walk-forward validation?
+> When do equity events produce tradable post-event abnormal returns, and when does the apparent signal disappear after transaction costs, placebo baselines, parameter sensitivity, exposure controls, and walk-forward validation?
 
 The project focuses on event-driven equity behaviour rather than broad market-regime allocation. Each observation is a `ticker + event_date` pair. The goal is to test whether stocks exhibit continuation or reversal after abnormal stock-level shocks.
 
 ## 2. Data and Universe
 
-The initial MVP universe consists of 10 liquid large-cap stocks:
+The initial MVP universe consisted of 10 liquid large-cap stocks:
 
 ```text
 AAPL, MSFT, NVDA, AMZN, META, GOOGL, JPM, XOM, JNJ, HD
 ```
+
+The expanded universe contains 88 liquid US equities across technology, financials, healthcare, consumer, industrials, energy, materials, utilities, and communication services.
 
 SPY is used as the market benchmark.
 
@@ -52,7 +48,7 @@ Daily abnormal return is calculated as:
 abnormal_return_i,t = stock_return_i,t - SPY_return_t
 ```
 
-This removes broad SPY exposure, but it does not yet control for sector, beta, or factor exposures. For the MVP, this is sufficient to test whether the event effect survives a basic market adjustment.
+This removes broad SPY exposure, but it does not yet control for sector, beta, or factor exposures. For the MVP and expanded validation, this is sufficient to test whether the event effect survives a basic market adjustment.
 
 ## 4. Event Definition
 
@@ -84,9 +80,9 @@ avg_20d_dollar_volume >= 50,000,000
 
 Rolling baselines are shifted by one day, so event-day return and event-day volume are not used in the pre-event volatility and volume estimates.
 
-## 5. Event Study
+## 5. Initial MVP Event Study
 
-The first event panel contained:
+The first 10-stock event panel contained:
 
 | Metric | Value |
 |---|---:|
@@ -104,7 +100,7 @@ Initial 20-day event-study results:
 | Positive events | 0.79% | 52.45% | 3.06 |
 | Negative events | 0.82% | 54.60% | 3.13 |
 
-The initial event study showed positive average abnormal returns after abnormal price-volume events. However, this raw result alone was not enough to claim alpha because it could be driven by the stock universe, market period, or repeated exposure to high-momentum names.
+The initial event study showed positive average abnormal returns after abnormal price-volume events. However, this raw result alone was not enough to claim alpha because it could be driven by the small stock universe, market period, or repeated exposure to a few high-momentum names.
 
 ## 6. Directional Drift and Reversal
 
@@ -162,9 +158,9 @@ Matched placebo result for negative-event reversal:
 
 This supported the narrower finding that negative-event reversal was stronger than same-stock, same-year non-event baselines.
 
-## 8. Backtest Design
+## 8. Initial Backtest Design
 
-The strategy backtest uses the following base rules:
+The first strategy backtest used the following base rules:
 
 | Component | Rule |
 |---|---|
@@ -283,9 +279,7 @@ The fixed rule produced positive abnormal returns in every yearly test slice fro
 
 ### 11.2 Optimized Walk-Forward
 
-The optimized walk-forward test is the strongest current validation.
-
-For each test year, parameters were selected using only prior years.
+The optimized walk-forward test selected parameters using only prior years.
 
 Candidate grid:
 
@@ -323,7 +317,103 @@ Yearly optimized results:
 
 The strategy remained positive in every optimized test year. The 30-day holding period was selected every year.
 
-## 12. Failure Modes
+These walk-forward results reflect the earlier research setup. A future improvement is to rerun walk-forward validation under the expanded-universe global-pacing framework.
+
+## 12. Expanded Universe Validation
+
+After the initial MVP research pass, the project was expanded from 10 large-cap stocks to an 88-stock liquid US equity universe.
+
+The expanded universe produced a much larger event panel:
+
+| Metric | MVP Universe | Expanded Universe |
+|---|---:|---:|
+| Stocks | 10 | 88 |
+| Events | 1,448 | 12,266 |
+| Positive events | 774 | 6,244 |
+| Negative events | 674 | 6,022 |
+
+The expanded event-study result remained positive:
+
+| Group | Events | 20d Mean Abnormal Return | 20d Hit Rate | 20d t-stat |
+|---|---:|---:|---:|---:|
+| All events | 12,266 | 0.50% | 51.56% | 7.14 |
+| Positive events | 6,244 | 0.49% | 51.44% | 5.02 |
+| Negative events | 6,022 | 0.50% | 51.68% | 5.07 |
+
+The signal weakened in magnitude compared with the original 10-stock MVP, but the expanded sample is broader and more statistically credible.
+
+The event-type analysis continued to select negative-event reversal as the strongest candidate:
+
+| Horizon | Strategy | Events | Mean Return | Avg bps/event | Hit Rate | t-stat |
+|---:|---|---:|---:|---:|---:|---:|
+| 5d | Negative Event Reversal | 6,022 | 0.134% | 13.41 bps | 50.76% | 2.31 |
+| 10d | Negative Event Reversal | 6,022 | 0.284% | 28.41 bps | 51.59% | 3.79 |
+| 20d | Negative Event Reversal | 6,022 | 0.503% | 50.34 bps | 51.68% | 5.07 |
+
+This suggests that the original finding was not only a 10-stock artifact.
+
+## 13. Expanded Universe Backtest
+
+The expanded 88-stock abnormal-return backtest used the same negative-event reversal idea with a 30-trading-day holding period.
+
+| Metric | Result |
+|---|---:|
+| Universe size | 88 |
+| Trades | 457 |
+| Win rate | 52.52% |
+| Average trade abnormal return | 1.00% |
+| Median trade abnormal return | 0.48% |
+| Total abnormal return | 126.16% |
+| Annualized abnormal Sharpe | 0.63 |
+| Max abnormal drawdown | -26.08% |
+| Active day ratio | 99.20% |
+| Average gross exposure | 95.74% |
+
+The effect survived universe expansion, but the strategy became almost continuously invested. This exposed a new failure mode: in a broader universe, the event detector creates enough signals to keep the portfolio close to fully deployed most of the time.
+
+## 14. Exposure Control: Cooldown and Global Pacing
+
+A same-ticker cooldown was tested first.
+
+| Cooldown | Accepted Trades | Avg Trade Return | Sharpe | Max Drawdown | Avg Gross Exposure |
+|---:|---:|---:|---:|---:|---:|
+| 0d | 457 | 1.00% | 0.63 | -26.08% | 95.74% |
+| 5d | 454 | 0.93% | 0.59 | -27.36% | 95.11% |
+| 10d | 453 | 0.80% | 0.52 | -27.08% | 94.90% |
+| 20d | 453 | 1.06% | 0.69 | -19.67% | 94.90% |
+| 30d | 452 | 0.92% | 0.63 | -19.99% | 94.69% |
+
+The 20-day same-ticker cooldown improved drawdown and Sharpe, but it did not solve the main exposure problem because other stocks continued to generate enough events to keep the strategy highly invested.
+
+A global pacing rule was then tested. This limits how often the strategy can add new trades across the entire universe.
+
+| Min Days Between New Trades | Accepted Trades | Avg Trade Return | Sharpe | Max Drawdown | Avg Gross Exposure |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 457 | 1.00% | 0.63 | -26.08% | 95.74% |
+| 1 | 457 | 1.08% | 0.71 | -23.28% | 95.74% |
+| 2 | 454 | 0.63% | 0.42 | -20.55% | 95.11% |
+| 3 | 450 | 0.70% | 0.45 | -21.22% | 94.27% |
+| 5 | 428 | 0.68% | 0.40 | -25.76% | 89.66% |
+| 10 | 368 | 1.39% | 0.77 | -14.19% | 77.10% |
+
+The 10-calendar-day global pacing rule was the best current realism layer. It improved Sharpe, reduced drawdown, and lowered average gross exposure.
+
+The updated expanded-universe candidate is:
+
+| Component | Rule |
+|---|---|
+| Strategy | Negative Event Reversal |
+| Universe | 88 liquid US equities |
+| Event threshold | `event_strength <= -2.0` |
+| Volume confirmation | `volume_shock >= 1.2` |
+| Holding period | 30 trading days |
+| Transaction cost | 5 bps per side |
+| Position cap | Max 5 concurrent positions |
+| Exposure control | Minimum 10 calendar days between new trades globally |
+
+This changes the interpretation of the project. The signal does not disappear after universe expansion, but deployment must control event clustering and persistent exposure.
+
+## 15. Failure Modes
 
 The main failure modes are:
 
@@ -331,54 +421,59 @@ The main failure modes are:
 |---|---|
 | Genuine repricing | Some negative events are not overreactions but the start of a real decline |
 | Ticker heterogeneity | Performance is uneven across stocks |
-| Stress/repricing years | 2020 and 2022 were weaker than normal years |
+| Stress/repricing years | Some periods show weaker reversal behaviour depending on validation method |
 | Cost drag | The strategy fails under very high transaction cost assumptions |
 | Over-filtering | Very strict event thresholds reduce the trade set and can remove the edge |
-| Persistent exposure | The strategy is active most of the time, so exposure management still needs work |
+| Persistent exposure | The expanded universe creates too many events unless pacing is added |
+| Event clustering | Repeated events can keep the portfolio almost continuously invested |
 
-Ticker-level validation showed that performance was not uniform. META was the strongest contributor, while XOM was the weakest contributor.
+Ticker-level validation showed that performance was not uniform. Some high-volatility growth and semiconductor names contributed strongly, while several energy, telecom, and industrial names were weaker.
 
-Trade-level year validation showed that 2022 was the weakest year and 2024 was the strongest year.
+The main interpretation is that some negative events are temporary overreactions, while others are the beginning of genuine fundamental repricing. The current model does not yet fully distinguish between these two cases.
 
-The main interpretation is that some negative events are temporary overreactions, while others are the beginning of a genuine fundamental repricing. The current model does not yet fully distinguish between these two cases.
-
-## 13. Limitations
+## 16. Limitations
 
 The project is still an MVP research system.
 
 Current limitations:
 
-1. The universe is small: 10 large-cap stocks.
+1. The expanded universe is larger but still manually selected.
 2. Event detection is based on price-volume shocks, not actual earnings announcement dates.
-3. The strategy is active most of the time, so exposure control needs improvement.
+3. The strategy still has meaningful exposure even after global pacing.
 4. Sector-neutral attribution has not yet been implemented.
 5. The abnormal-return model uses SPY adjustment only, not beta-adjusted or factor-adjusted returns.
-6. The optimized walk-forward test uses a small parameter grid.
+6. The optimized walk-forward test currently reflects the earlier research setup, not the expanded-universe global-pacing framework.
 7. Results are heterogeneous across tickers and years.
-8. The project has not yet been tested on a broader equity universe.
+8. The project has not yet been tested on a full production-grade equity universe.
+9. The test suite covers core logic, but not the full research pipeline.
 
-## 14. Future Work
+## 17. Future Work
 
 Planned extensions:
 
-1. Expand the universe to 50-100 liquid US equities.
+1. Rerun walk-forward validation under the expanded-universe global-pacing framework.
 2. Add actual earnings announcement dates.
 3. Add earnings surprise and analyst revision data.
 4. Add sector classification and sector-neutral attribution.
 5. Compare SPY-adjusted, beta-adjusted, sector-adjusted, and factor-adjusted abnormal returns.
-6. Add stronger exposure controls to reduce persistent market participation.
-7. Add event spacing rules to avoid clustered repeated entries.
+6. Add stronger exposure controls through monthly trade budgets or volatility targeting.
+7. Add event spacing rules that combine same-ticker cooldown and global pacing.
 8. Add more tests around walk-forward parameter selection and portfolio construction.
-9. Produce a final PDF-style research note with figures and appendix tables.
+9. Update figures to include expanded-universe global pacing results.
+10. Produce a final PDF-style research note with figures and appendix tables.
 
-## 15. Conclusion
+## 18. Conclusion
 
 The project began with a broad question about post-event equity drift and narrowed into a specific finding: negative abnormal price-volume events exhibit a medium-term reversal pattern.
 
-The evidence is strongest for a 30-trading-day holding window. The effect survives matched placebo comparison, transaction costs, threshold sensitivity, holding-period sensitivity, and optimized walk-forward validation. However, the strategy is not universal. It is heterogeneous across tickers, weaker in stress/repricing years, and vulnerable when negative events represent genuine repricing rather than temporary overreaction.
+The original 10-stock MVP showed strong early evidence for the effect. The later 88-stock expanded universe made the result more credible by increasing the event panel from 1,448 to 12,266 events. The signal weakened in magnitude, but the negative-event reversal thesis remained intact.
+
+The expanded universe also revealed an important deployment issue. Without pacing, the strategy becomes almost continuously invested, with an active day ratio near 99% and average gross exposure near 96%. This makes the naive expanded strategy less realistic.
+
+The best current expanded-universe realism layer is a 10-calendar-day global pacing rule. It improves the abnormal Sharpe from 0.63 to 0.77, reduces max drawdown from -26.08% to -14.19%, and lowers average gross exposure from 95.74% to 77.10%.
 
 The current conclusion is:
 
-> Negative abnormal price-volume events tend to reverse over a medium-term horizon. A simple strategy buying after these events and holding for around 30 trading days remains positive after SPY adjustment, transaction costs, matched placebo comparison, and optimized walk-forward validation.
+> Negative abnormal price-volume events tend to reverse over a medium-term horizon. The effect survives expansion from 10 stocks to 88 liquid US equities, but naive deployment becomes too continuously invested. A global pacing rule improves the risk profile by reducing event clustering and gross exposure.
 
-This makes the project a credible event-driven equity research system, while leaving clear room for future improvements in universe expansion, event data quality, sector controls, and exposure management.
+This makes the project a credible event-driven equity research system, while leaving clear room for future improvements in actual event data, sector controls, factor adjustment, walk-forward validation under the expanded universe, and stronger exposure management.
