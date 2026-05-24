@@ -1,142 +1,127 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 
-
-RAW_DATA_DIR = Path("data/raw")
-PROCESSED_DATA_DIR = Path("data/processed")
-
-DEFAULT_TICKERS = [
-    "AAPL",
-    "MSFT",
-    "NVDA",
-    "AMZN",
-    "META",
-    "GOOGL",
-    "JPM",
-    "XOM",
-    "JNJ",
-    "HD",
-]
-
-BENCHMARK_TICKERS = ["SPY", "^VIX"]
+from universe import ALL_DOWNLOAD_TICKERS, ACTIVE_STOCK_TICKERS, MARKET_TICKER
 
 
-def ensure_data_dirs() -> None:
-    """Create raw and processed data folders if they do not exist."""
-    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
+RAW_DATA_PATH = Path("data/raw/starter_prices.csv")
+PROCESSED_DATA_PATH = Path("data/processed/starter_prices_with_returns.csv")
+
+START_DATE = "2015-01-01"
+END_DATE = None
+
+MAX_RETRIES = 3
+RETRY_SLEEP_SECONDS = 2.0
 
 
-def _clean_single_ticker_download(data: pd.DataFrame, ticker: str) -> pd.DataFrame:
+def normalise_ticker_for_filename(ticker: str) -> str:
+    """Convert symbols like ^VIX into safer strings if needed later."""
+    return ticker.replace("^", "")
+
+
+def flatten_yfinance_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Convert one yfinance ticker download into standard long-format rows.
-
-    Output columns:
-    date, ticker, open, high, low, close, adj_close, volume
+    yfinance sometimes returns MultiIndex columns depending on version/settings.
+    This function converts them into ordinary single-level columns.
     """
-    if data.empty:
-        raise ValueError(f"No data returned for {ticker}")
+    out = df.copy()
 
-    out = data.copy()
-
-    # Some yfinance versions return MultiIndex columns even for one ticker.
-    # Flatten them safely.
     if isinstance(out.columns, pd.MultiIndex):
         out.columns = [
-            col[0] if col[0] else col[-1]
-            for col in out.columns.to_list()
+            "_".join(str(part) for part in col if str(part) != "")
+            for col in out.columns
         ]
-
-    out = out.reset_index()
-
-    # Normalize column names.
-    normalized_cols = {}
-    for col in out.columns:
-        col_str = str(col).strip().lower()
-
-        if col_str in {"date", "datetime"}:
-            normalized_cols[col] = "date"
-        elif col_str == "open":
-            normalized_cols[col] = "open"
-        elif col_str == "high":
-            normalized_cols[col] = "high"
-        elif col_str == "low":
-            normalized_cols[col] = "low"
-        elif col_str == "close":
-            normalized_cols[col] = "close"
-        elif col_str in {"adj close", "adj_close"}:
-            normalized_cols[col] = "adj_close"
-        elif col_str == "volume":
-            normalized_cols[col] = "volume"
-
-    out = out.rename(columns=normalized_cols)
-
-    # If yfinance's index reset did not preserve the name cleanly,
-    # use the first column as date.
-    if "date" not in out.columns:
-        first_col = out.columns[0]
-        out = out.rename(columns={first_col: "date"})
-
-    # If adjusted close is missing, fall back to close.
-    if "adj_close" not in out.columns and "close" in out.columns:
-        out["adj_close"] = out["close"]
-
-    required_cols = ["date", "open", "high", "low", "close", "adj_close", "volume"]
-    missing = [col for col in required_cols if col not in out.columns]
-
-    if missing:
-        raise ValueError(
-            f"{ticker} missing columns after download: {missing}. "
-            f"Available columns: {list(out.columns)}"
-        )
-
-    out["ticker"] = ticker
-
-    final_cols = [
-        "date",
-        "ticker",
-        "open",
-        "high",
-        "low",
-        "close",
-        "adj_close",
-        "volume",
-    ]
-
-    out = out[final_cols]
-    out["date"] = pd.to_datetime(out["date"]).dt.tz_localize(None)
-    out = out.dropna(subset=["date", "adj_close"])
-    out = out.sort_values("date").reset_index(drop=True)
 
     return out
 
 
-def download_prices(
-    tickers: list[str],
-    start: str = "2015-01-01",
-    end: str | None = None,
-) -> pd.DataFrame:
+def standardize_price_columns(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
-    Download daily OHLCV data from Yahoo Finance.
+    Convert a raw yfinance download into a standardized OHLCV DataFrame.
 
-    This downloads tickers sequentially instead of in one large batch.
-    That is slower, but more reliable and avoids yfinance cache/database lock issues.
+    Output columns:
+    date, ticker, open, high, low, close, adj_close, volume
     """
-    if not tickers:
-        raise ValueError("tickers must not be empty")
+    if df.empty:
+        raise ValueError(f"{ticker} returned an empty DataFrame.")
 
-    frames: list[pd.DataFrame] = []
-    failed: list[str] = []
+    out = flatten_yfinance_columns(df)
+    out = out.reset_index()
 
-    for ticker in tickers:
-        print(f"Downloading {ticker}...")
+    rename_map = {}
 
+    for col in out.columns:
+        lower = str(col).lower().replace(" ", "_")
+
+        if lower in {"date", "datetime"}:
+            rename_map[col] = "date"
+        elif lower in {"open", f"open_{ticker.lower()}"}:
+            rename_map[col] = "open"
+        elif lower in {"high", f"high_{ticker.lower()}"}:
+            rename_map[col] = "high"
+        elif lower in {"low", f"low_{ticker.lower()}"}:
+            rename_map[col] = "low"
+        elif lower in {"close", f"close_{ticker.lower()}"}:
+            rename_map[col] = "close"
+        elif lower in {
+            "adj_close",
+            "adjusted_close",
+            f"adj_close_{ticker.lower()}",
+            f"adjusted_close_{ticker.lower()}",
+        }:
+            rename_map[col] = "adj_close"
+        elif lower in {"volume", f"volume_{ticker.lower()}"}:
+            rename_map[col] = "volume"
+
+    out = out.rename(columns=rename_map)
+
+    if "date" not in out.columns:
+        first_col = out.columns[0]
+        out = out.rename(columns={first_col: "date"})
+
+    if "adj_close" not in out.columns and "close" in out.columns:
+        out["adj_close"] = out["close"]
+
+    required = ["date", "open", "high", "low", "close", "adj_close", "volume"]
+    missing = [col for col in required if col not in out.columns]
+
+    if missing:
+        raise ValueError(f"{ticker} missing columns after download: {missing}")
+
+    out = out[required].copy()
+    out["ticker"] = ticker
+
+    out["date"] = pd.to_datetime(out["date"]).dt.tz_localize(None)
+    out = out.sort_values("date").reset_index(drop=True)
+
+    for col in ["open", "high", "low", "close", "adj_close", "volume"]:
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+
+    out = out.dropna(subset=["date", "adj_close", "volume"])
+    out = out[out["adj_close"] > 0].copy()
+    out = out[out["volume"] >= 0].copy()
+
+    return out[
+        ["date", "ticker", "open", "high", "low", "close", "adj_close", "volume"]
+    ]
+
+
+def download_one_ticker(
+    ticker: str,
+    start: str = START_DATE,
+    end: str | None = END_DATE,
+) -> pd.DataFrame | None:
+    """Download one ticker with retries."""
+    for attempt in range(1, MAX_RETRIES + 1):
         try:
-            data = yf.download(
+            print(f"Downloading {ticker}...")
+
+            raw = yf.download(
                 tickers=ticker,
                 start=start,
                 end=end,
@@ -145,12 +130,37 @@ def download_prices(
                 threads=False,
             )
 
-            ticker_df = _clean_single_ticker_download(data, ticker)
-            frames.append(ticker_df)
+            return standardize_price_columns(raw, ticker)
 
         except Exception as exc:
-            print(f"WARNING: failed to download {ticker}: {exc}")
+            print(
+                f"WARNING: failed to download {ticker} "
+                f"(attempt {attempt}/{MAX_RETRIES}): {exc}"
+            )
+
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_SLEEP_SECONDS)
+
+    return None
+
+
+def download_prices(
+    tickers: list[str],
+    start: str = START_DATE,
+    end: str | None = END_DATE,
+) -> pd.DataFrame:
+    """Download all tickers sequentially to avoid yfinance cache/database issues."""
+    frames: list[pd.DataFrame] = []
+    failed: list[str] = []
+
+    for ticker in tickers:
+        ticker_data = download_one_ticker(ticker=ticker, start=start, end=end)
+
+        if ticker_data is None or ticker_data.empty:
             failed.append(ticker)
+            continue
+
+        frames.append(ticker_data)
 
     if not frames:
         raise RuntimeError("No valid ticker data found after download.")
@@ -159,58 +169,116 @@ def download_prices(
     prices = prices.sort_values(["ticker", "date"]).reset_index(drop=True)
 
     if failed:
-        print(f"Skipped failed tickers: {failed}")
+        print()
+        print("WARNING: failed tickers")
+        print("-----------------------")
+        for ticker in failed:
+            print(f"- {ticker}")
 
     return prices
 
 
-def add_returns(prices: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add adjusted-close daily returns and dollar volume.
-    """
-    required = {"date", "ticker", "adj_close", "volume"}
-    missing = required - set(prices.columns)
-
-    if missing:
-        raise ValueError(f"Missing required columns: {sorted(missing)}")
-
+def add_return_features(prices: pd.DataFrame) -> pd.DataFrame:
+    """Add returns and basic liquidity fields."""
     out = prices.copy()
     out = out.sort_values(["ticker", "date"]).reset_index(drop=True)
 
     out["return"] = out.groupby("ticker")["adj_close"].pct_change()
     out["dollar_volume"] = out["adj_close"] * out["volume"]
 
+    out["log_return"] = (
+        out.groupby("ticker")["adj_close"]
+        .transform(lambda s: (s / s.shift(1)))
+        .apply(lambda x: pd.NA if pd.isna(x) or x <= 0 else x)
+    )
+
+    out["log_return"] = pd.to_numeric(out["log_return"], errors="coerce")
+    out["log_return"] = out["log_return"].apply(
+        lambda x: pd.NA if pd.isna(x) else pd.NA
+    )
+
+    # Use numpy log through pandas after avoiding non-positive values.
+    price_ratio = out.groupby("ticker")["adj_close"].transform(lambda s: s / s.shift(1))
+    out["log_return"] = price_ratio.where(price_ratio > 0).apply(
+        lambda x: pd.NA if pd.isna(x) else __import__("math").log(x)
+    )
+
     return out
 
 
-def build_initial_dataset(
-    start: str = "2015-01-01",
-    end: str | None = None,
-) -> pd.DataFrame:
-    """
-    Download starter stock, SPY, and VIX data, then save raw and processed CSVs.
-    """
-    ensure_data_dirs()
+def validate_dataset(prices: pd.DataFrame) -> None:
+    """Basic data-quality checks for the downloaded panel."""
+    required = {
+        "date",
+        "ticker",
+        "open",
+        "high",
+        "low",
+        "close",
+        "adj_close",
+        "volume",
+        "return",
+        "dollar_volume",
+    }
 
-    tickers = DEFAULT_TICKERS + BENCHMARK_TICKERS
-    prices = download_prices(tickers=tickers, start=start, end=end)
+    missing = required - set(prices.columns)
+    if missing:
+        raise ValueError(f"Processed dataset missing columns: {sorted(missing)}")
 
-    raw_path = RAW_DATA_DIR / "starter_prices.csv"
-    prices.to_csv(raw_path, index=False)
+    tickers_found = set(prices["ticker"].unique())
 
-    processed = add_returns(prices)
+    if MARKET_TICKER not in tickers_found:
+        raise ValueError(f"Missing market benchmark: {MARKET_TICKER}")
 
-    processed_path = PROCESSED_DATA_DIR / "starter_prices_with_returns.csv"
-    processed.to_csv(processed_path, index=False)
+    stock_tickers_found = tickers_found.intersection(set(ACTIVE_STOCK_TICKERS))
+
+    if len(stock_tickers_found) < 10:
+        raise ValueError(
+            "Too few stock tickers downloaded successfully: "
+            f"{len(stock_tickers_found)}"
+        )
+
+
+def build_initial_dataset() -> None:
+    """Download and process the project price dataset."""
+    RAW_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PROCESSED_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    tickers = ALL_DOWNLOAD_TICKERS
+
+    print("Active stock universe")
+    print("---------------------")
+    print(f"Stocks: {len(ACTIVE_STOCK_TICKERS)}")
+    print(f"Benchmark: {MARKET_TICKER}")
+    print(f"Total downloads: {len(tickers)}")
+    print()
+
+    raw_prices = download_prices(
+        tickers=tickers,
+        start=START_DATE,
+        end=END_DATE,
+    )
+
+    processed = add_return_features(raw_prices)
+    validate_dataset(processed)
+
+    raw_prices.to_csv(RAW_DATA_PATH, index=False)
+    processed.to_csv(PROCESSED_DATA_PATH, index=False)
+
+    stock_count = processed[
+        processed["ticker"].isin(ACTIVE_STOCK_TICKERS)
+    ]["ticker"].nunique()
 
     print()
-    print(f"Saved raw data to: {raw_path}")
-    print(f"Saved processed data to: {processed_path}")
+    print(f"Saved raw data to: {RAW_DATA_PATH}")
+    print(f"Saved processed data to: {PROCESSED_DATA_PATH}")
     print(f"Rows: {len(processed):,}")
-    print(f"Tickers: {processed['ticker'].nunique()}")
-    print(f"Date range: {processed['date'].min().date()} to {processed['date'].max().date()}")
-
-    return processed
+    print(f"Stock tickers found: {stock_count}")
+    print(f"Total tickers found: {processed['ticker'].nunique()}")
+    print(
+        "Date range: "
+        f"{processed['date'].min().date()} to {processed['date'].max().date()}"
+    )
 
 
 if __name__ == "__main__":
