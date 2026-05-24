@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
+
 
 PROCESSED_DATA_PATH = Path("data/processed/starter_prices_with_returns.csv")
 EVENT_PANEL_PATH = Path("results/event_panel.csv")
@@ -14,26 +16,11 @@ ABNORMAL_TRADE_LEDGER_PATH = Path("results/abnormal_trade_ledger.csv")
 ABNORMAL_PORTFOLIO_RETURNS_PATH = Path("results/abnormal_portfolio_returns.csv")
 ABNORMAL_BACKTEST_SUMMARY_PATH = Path("results/abnormal_backtest_summary.csv")
 
-STRATEGY_NAME = "negative_event_reversal_20d_abnormal"
+STRATEGY_NAME = "negative_event_reversal_30d_abnormal"
 
-HOLD_DAYS = 20
+HOLD_DAYS = 30
 MAX_CONCURRENT_POSITIONS = 5
 TRANSACTION_COST_BPS_PER_SIDE = 5.0
-
-STOCK_TICKERS = [
-    "AAPL",
-    "MSFT",
-    "NVDA",
-    "AMZN",
-    "META",
-    "GOOGL",
-    "JPM",
-    "XOM",
-    "JNJ",
-    "HD",
-]
-
-MARKET_TICKER = "SPY"
 
 
 @dataclass(frozen=True)
@@ -49,6 +36,8 @@ class Trade:
     gross_abnormal_return: float
     net_abnormal_return: float
     holding_days: int
+    event_strength: float
+    volume_shock: float
     transaction_cost_bps_round_trip: float
 
 
@@ -80,9 +69,7 @@ def load_prices(path: Path = PROCESSED_DATA_PATH) -> pd.DataFrame:
     prices = prices.merge(market_returns, on="date", how="left")
     prices["abnormal_return"] = prices["return"] - prices["market_return"]
 
-    prices = prices[
-        prices["ticker"].isin(STOCK_TICKERS)
-    ].copy()
+    prices = prices[prices["ticker"].isin(ACTIVE_STOCK_TICKERS)].copy()
 
     return prices.sort_values(["ticker", "date"]).reset_index(drop=True)
 
@@ -96,17 +83,13 @@ def load_events(path: Path = EVENT_PANEL_PATH) -> pd.DataFrame:
 
     events = pd.read_csv(path, parse_dates=["date"])
 
-    required = {
-        "ticker",
-        "date",
-        "event_direction",
-        "event_strength",
-        "volume_shock",
-    }
+    required = {"ticker", "date", "event_direction", "event_strength", "volume_shock"}
     missing = required - set(events.columns)
 
     if missing:
         raise ValueError(f"Missing required columns: {sorted(missing)}")
+
+    events = events[events["ticker"].isin(ACTIVE_STOCK_TICKERS)].copy()
 
     return events.sort_values(["date", "ticker"]).reset_index(drop=True)
 
@@ -128,7 +111,7 @@ def find_entry_exit(
     Enter next trading day after event and exit after hold_days trading days.
 
     Returns:
-    entry_date, exit_date, entry_price, exit_price, cumulative_abnormal_return
+    entry_date, exit_date, entry_price, exit_price, cumulative_abnormal_return.
     """
     after_event = ticker_prices[ticker_prices["date"] > event_date].copy()
 
@@ -158,9 +141,7 @@ def build_candidate_trades(
     hold_days: int = HOLD_DAYS,
     transaction_cost_bps_per_side: float = TRANSACTION_COST_BPS_PER_SIDE,
 ) -> pd.DataFrame:
-    """
-    Build candidate trades for negative-event reversal using abnormal returns.
-    """
+    """Build candidate trades for negative-event reversal."""
     price_map = get_ticker_price_map(prices)
 
     negative_events = events[
@@ -178,7 +159,11 @@ def build_candidate_trades(
         event_date = pd.Timestamp(event["date"])
 
         ticker_prices = price_map[ticker]
-        entry_exit = find_entry_exit(ticker_prices, event_date, hold_days)
+        entry_exit = find_entry_exit(
+            ticker_prices=ticker_prices,
+            event_date=event_date,
+            hold_days=hold_days,
+        )
 
         if entry_exit is None:
             continue
@@ -201,6 +186,8 @@ def build_candidate_trades(
                 gross_abnormal_return=gross_abnormal_return,
                 net_abnormal_return=net_abnormal_return,
                 holding_days=hold_days,
+                event_strength=float(event["event_strength"]),
+                volume_shock=float(event["volume_shock"]),
                 transaction_cost_bps_round_trip=2 * transaction_cost_bps_per_side,
             )
         )
@@ -208,7 +195,7 @@ def build_candidate_trades(
         trade_id += 1
 
     if not trades:
-        raise RuntimeError("No candidate trades were generated.")
+        raise RuntimeError("No candidate abnormal-return trades generated.")
 
     return pd.DataFrame([trade.__dict__ for trade in trades])
 
@@ -217,9 +204,7 @@ def apply_concurrency_cap(
     trades: pd.DataFrame,
     max_concurrent_positions: int = MAX_CONCURRENT_POSITIONS,
 ) -> pd.DataFrame:
-    """
-    Accept trades chronologically while enforcing max concurrent positions.
-    """
+    """Accept trades chronologically while enforcing max concurrent positions."""
     sorted_trades = trades.sort_values(["entry_date", "ticker"]).reset_index(drop=True)
 
     accepted_rows = []
@@ -254,18 +239,10 @@ def build_daily_abnormal_portfolio_returns(
     prices: pd.DataFrame,
     trades: pd.DataFrame,
     max_concurrent_positions: int = MAX_CONCURRENT_POSITIONS,
+    transaction_cost_bps_per_side: float = TRANSACTION_COST_BPS_PER_SIDE,
 ) -> pd.DataFrame:
-    """
-    Build equal-weight daily abnormal portfolio returns.
-
-    This uses stock_return - SPY_return as the daily return stream.
-    """
-    all_dates = (
-        prices["date"]
-        .drop_duplicates()
-        .sort_values()
-        .reset_index(drop=True)
-    )
+    """Build equal-weight daily abnormal portfolio returns."""
+    all_dates = prices["date"].drop_duplicates().sort_values().reset_index(drop=True)
 
     abnormal_returns_wide = (
         prices.pivot(index="date", columns="ticker", values="abnormal_return")
@@ -275,10 +252,7 @@ def build_daily_abnormal_portfolio_returns(
     rows = []
 
     for date in all_dates:
-        active = trades[
-            (trades["entry_date"] <= date)
-            & (date < trades["exit_date"])
-        ]
+        active = trades[(trades["entry_date"] <= date) & (date < trades["exit_date"])]
 
         if active.empty:
             rows.append(
@@ -323,7 +297,7 @@ def build_daily_abnormal_portfolio_returns(
     portfolio = pd.DataFrame(rows)
     portfolio = portfolio.sort_values("date").reset_index(drop=True)
 
-    cost_per_side = TRANSACTION_COST_BPS_PER_SIDE / 10_000
+    cost_per_side = transaction_cost_bps_per_side / 10_000
     trade_weight = 1.0 / max_concurrent_positions
 
     portfolio["transaction_cost"] = 0.0
@@ -367,11 +341,8 @@ def annualized_sharpe(daily_returns: pd.Series) -> float:
     return float(np.sqrt(252) * clean.mean() / clean.std(ddof=1))
 
 
-def summarize_backtest(
-    trades: pd.DataFrame,
-    portfolio: pd.DataFrame,
-) -> pd.DataFrame:
-    """Build one-row abnormal-return backtest summary."""
+def summarize_backtest(trades: pd.DataFrame, portfolio: pd.DataFrame) -> pd.DataFrame:
+    """Summarize abnormal-return backtest."""
     daily_returns = portfolio["net_portfolio_abnormal_return"]
     equity_curve = portfolio["abnormal_equity_curve"]
 
@@ -380,6 +351,7 @@ def summarize_backtest(
 
     summary = {
         "strategy": STRATEGY_NAME,
+        "universe_size": len(ACTIVE_STOCK_TICKERS),
         "hold_days": HOLD_DAYS,
         "max_concurrent_positions": MAX_CONCURRENT_POSITIONS,
         "transaction_cost_bps_per_side": TRANSACTION_COST_BPS_PER_SIDE,
@@ -403,14 +375,15 @@ def summarize_backtest(
 
 
 def run_abnormal_backtest() -> None:
-    """Run abnormal-return backtest for negative-event reversal."""
+    """Run negative-event reversal abnormal-return backtest."""
     prices = load_prices()
     events = load_events()
 
-    candidate_trades = build_candidate_trades(prices, events)
+    candidate_trades = build_candidate_trades(prices=prices, events=events)
     trades = apply_concurrency_cap(candidate_trades)
-    portfolio = build_daily_abnormal_portfolio_returns(prices, trades)
-    summary = summarize_backtest(trades, portfolio)
+
+    portfolio = build_daily_abnormal_portfolio_returns(prices=prices, trades=trades)
+    summary = summarize_backtest(trades=trades, portfolio=portfolio)
 
     ABNORMAL_TRADE_LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -418,6 +391,7 @@ def run_abnormal_backtest() -> None:
     portfolio.to_csv(ABNORMAL_PORTFOLIO_RETURNS_PATH, index=False)
     summary.to_csv(ABNORMAL_BACKTEST_SUMMARY_PATH, index=False)
 
+    print()
     print(f"Saved abnormal trade ledger to: {ABNORMAL_TRADE_LEDGER_PATH}")
     print(f"Saved abnormal portfolio returns to: {ABNORMAL_PORTFOLIO_RETURNS_PATH}")
     print(f"Saved abnormal backtest summary to: {ABNORMAL_BACKTEST_SUMMARY_PATH}")
@@ -441,6 +415,8 @@ def run_abnormal_backtest() -> None:
                 "gross_stock_return",
                 "gross_abnormal_return",
                 "net_abnormal_return",
+                "event_strength",
+                "volume_shock",
             ]
         ]
         .head(10)
