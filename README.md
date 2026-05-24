@@ -45,6 +45,26 @@ stock return - SPY return
 
 ## Key Figures
 
+### Expanded Event Study: 20d Mean Abnormal Returns
+
+![Expanded Event Study: 20d Mean Abnormal Returns](docs/figures/expanded_event_study_20d.png)
+
+### Expanded Universe: Negative Event Reversal by Horizon
+
+![Expanded Universe: Negative Event Reversal by Horizon](docs/figures/expanded_strategy_candidates.png)
+
+### Expanded Universe Abnormal Backtest Summary
+
+![Expanded Universe Abnormal Backtest Summary](docs/figures/expanded_backtest_summary.png)
+
+### Global Pacing Sensitivity
+
+![Global Pacing Sensitivity](docs/figures/global_pacing_sensitivity.png)
+
+### Same-Ticker Cooldown Sensitivity
+
+![Same-Ticker Cooldown Sensitivity](docs/figures/cooldown_sensitivity.png)
+
 ### Optimized Walk-Forward Equity Curve
 
 ![Optimized Walk-Forward Equity Curve](docs/figures/optimized_equity_curve.png)
@@ -452,7 +472,8 @@ event-driven-equity-risk-lab/
 │   ├── walk_forward.py
 │   ├── walk_forward_optimized.py
 │   ├── final_summary.py
-│   └── figures.py
+│   ├── figures.py
+│   └── expanded_figures.py
 │
 ├── tests/
 │   ├── conftest.py
@@ -510,6 +531,7 @@ python src\event_type_analysis.py
 python src\backtest_abnormal.py
 python src\cooldown_sensitivity.py
 python src\global_pacing_sensitivity.py
+python src\expanded_figures.py
 ```
 
 Run additional research modules:
@@ -560,7 +582,7 @@ Planned improvements:
    - event-study outputs
    - walk-forward parameter selection
    - figure generation
-7. Update figures to include expanded-universe global pacing results.
+7. Update figures further with expanded-universe equity curves and drawdowns.
 
 ## Key Takeaway
 
