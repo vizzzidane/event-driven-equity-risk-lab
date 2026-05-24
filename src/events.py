@@ -2,31 +2,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
+
+from universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
 
 
 PROCESSED_DATA_PATH = Path("data/processed/starter_prices_with_returns.csv")
 EVENT_PANEL_PATH = Path("results/event_panel.csv")
 
-STOCK_TICKERS = [
-    "AAPL",
-    "MSFT",
-    "NVDA",
-    "AMZN",
-    "META",
-    "GOOGL",
-    "JPM",
-    "XOM",
-    "JNJ",
-    "HD",
-]
+EVENT_STRENGTH_THRESHOLD = 2.0
+VOLUME_SHOCK_THRESHOLD = 1.2
+MIN_AVG_DOLLAR_VOLUME = 50_000_000
 
-MARKET_TICKER = "SPY"
+FUTURE_HORIZONS = [5, 10, 20]
 
 
-def load_prices(path: Path = PROCESSED_DATA_PATH) -> pd.DataFrame:
-    """Load processed price/return data."""
+def load_processed_prices(path: Path = PROCESSED_DATA_PATH) -> pd.DataFrame:
+    """Load processed price panel."""
     if not path.exists():
         raise FileNotFoundError(
             f"Missing processed data file: {path}. Run `python src/data.py` first."
@@ -34,7 +26,14 @@ def load_prices(path: Path = PROCESSED_DATA_PATH) -> pd.DataFrame:
 
     prices = pd.read_csv(path, parse_dates=["date"])
 
-    required = {"date", "ticker", "adj_close", "volume", "return", "dollar_volume"}
+    required = {
+        "date",
+        "ticker",
+        "adj_close",
+        "volume",
+        "return",
+        "dollar_volume",
+    }
     missing = required - set(prices.columns)
 
     if missing:
@@ -43,196 +42,173 @@ def load_prices(path: Path = PROCESSED_DATA_PATH) -> pd.DataFrame:
     return prices.sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
-def add_market_returns(
-    prices: pd.DataFrame,
-    market_ticker: str = MARKET_TICKER,
-) -> pd.DataFrame:
-    """
-    Add market return column using SPY.
-    """
+def add_market_adjusted_returns(prices: pd.DataFrame) -> pd.DataFrame:
+    """Add SPY-adjusted abnormal returns."""
     market = prices.loc[
-        prices["ticker"] == market_ticker,
+        prices["ticker"] == MARKET_TICKER,
         ["date", "return"],
     ].rename(columns={"return": "market_return"})
 
     if market.empty:
-        raise ValueError(f"Market ticker {market_ticker} not found in data.")
+        raise ValueError(f"Market benchmark {MARKET_TICKER} not found in price data.")
 
-    out = prices.merge(market, on="date", how="left")
-    return out
+    stocks = prices[prices["ticker"].isin(ACTIVE_STOCK_TICKERS)].copy()
+    stocks = stocks.merge(market, on="date", how="left")
+
+    stocks["abnormal_return"] = stocks["return"] - stocks["market_return"]
+
+    return stocks.sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
 def add_event_features(prices: pd.DataFrame) -> pd.DataFrame:
     """
-    Add rolling volatility, abnormal return, volume shock, and pre-event momentum.
+    Add event-strength and volume-shock features.
 
-    This uses only information available up to the event date.
+    Rolling baselines are shifted by one day to avoid using event-day values
+    in the pre-event baseline.
     """
     out = prices.copy()
     out = out.sort_values(["ticker", "date"]).reset_index(drop=True)
 
-    out["abnormal_return"] = out["return"] - out["market_return"]
-
     grouped = out.groupby("ticker", group_keys=False)
 
-    # Rolling volatility of abnormal returns.
-    # Shift by 1 so event-day return is not included in the pre-event volatility estimate.
     out["rolling_20d_abnormal_vol"] = grouped["abnormal_return"].transform(
         lambda s: s.shift(1).rolling(window=20, min_periods=20).std()
     )
 
-    # Volume shock = current volume / trailing average volume.
-    # Shift by 1 to avoid using event-day volume in the trailing average.
     out["avg_20d_volume"] = grouped["volume"].transform(
         lambda s: s.shift(1).rolling(window=20, min_periods=20).mean()
     )
-    out["volume_shock"] = out["volume"] / out["avg_20d_volume"]
 
-    # Pre-event momentum: previous 20 trading days, excluding event day.
-    out["pre_20d_return"] = grouped["adj_close"].transform(
-        lambda s: s.shift(1) / s.shift(21) - 1
-    )
-
-    # Pre-event dollar volume for liquidity checks.
     out["avg_20d_dollar_volume"] = grouped["dollar_volume"].transform(
         lambda s: s.shift(1).rolling(window=20, min_periods=20).mean()
     )
 
-    # Future returns after event date.
-    out["future_5d_return"] = grouped["adj_close"].transform(
-        lambda s: s.shift(-5) / s - 1
-    )
-    out["future_10d_return"] = grouped["adj_close"].transform(
-        lambda s: s.shift(-10) / s - 1
-    )
-    out["future_20d_return"] = grouped["adj_close"].transform(
-        lambda s: s.shift(-20) / s - 1
-    )
-
-    # Future market returns for abnormal forward return calculations.
-    market_prices = out.loc[out["ticker"] == MARKET_TICKER, ["date", "adj_close"]].copy()
-    market_prices = market_prices.sort_values("date")
-
-    market_prices["future_5d_market_return"] = (
-        market_prices["adj_close"].shift(-5) / market_prices["adj_close"] - 1
-    )
-    market_prices["future_10d_market_return"] = (
-        market_prices["adj_close"].shift(-10) / market_prices["adj_close"] - 1
-    )
-    market_prices["future_20d_market_return"] = (
-        market_prices["adj_close"].shift(-20) / market_prices["adj_close"] - 1
-    )
-
-    market_forward = market_prices[
-        [
-            "date",
-            "future_5d_market_return",
-            "future_10d_market_return",
-            "future_20d_market_return",
-        ]
-    ]
-
-    out = out.merge(market_forward, on="date", how="left")
-
-    out["future_5d_abnormal_return"] = (
-        out["future_5d_return"] - out["future_5d_market_return"]
-    )
-    out["future_10d_abnormal_return"] = (
-        out["future_10d_return"] - out["future_10d_market_return"]
-    )
-    out["future_20d_abnormal_return"] = (
-        out["future_20d_return"] - out["future_20d_market_return"]
-    )
-
-    return out
-
-
-def detect_events(
-    features: pd.DataFrame,
-    stock_tickers: list[str] = STOCK_TICKERS,
-    abnormal_return_sigma_threshold: float = 2.0,
-    min_volume_shock: float = 1.2,
-    min_avg_dollar_volume: float = 50_000_000,
-) -> pd.DataFrame:
-    """
-    Detect large abnormal price/volume events.
-
-    Event definition:
-    - stock ticker only, excluding SPY and VIX
-    - absolute abnormal return exceeds threshold * trailing 20d abnormal vol
-    - volume is at least min_volume_shock times trailing 20d average
-    - trailing dollar volume passes liquidity threshold
-    """
-    out = features.copy()
-
-    out = out[out["ticker"].isin(stock_tickers)].copy()
+    out["volume_shock"] = out["volume"] / out["avg_20d_volume"]
 
     out["event_strength"] = (
         out["abnormal_return"] / out["rolling_20d_abnormal_vol"]
     )
 
-    conditions = (
-        out["event_strength"].abs().ge(abnormal_return_sigma_threshold)
-        & out["volume_shock"].ge(min_volume_shock)
-        & out["avg_20d_dollar_volume"].ge(min_avg_dollar_volume)
+    out["abs_event_strength"] = out["event_strength"].abs()
+
+    return out
+
+
+def compound_forward_return(series: pd.Series, horizon: int) -> pd.Series:
+    """
+    Compute compounded future return over the next `horizon` trading days.
+
+    For date t, this uses returns from t+1 to t+horizon.
+    """
+    return (
+        (1 + series)
+        .shift(-1)
+        .rolling(window=horizon, min_periods=horizon)
+        .apply(lambda values: values.prod() - 1, raw=True)
+        .shift(-(horizon - 1))
     )
 
-    events = out.loc[conditions].copy()
 
-    events["event_direction"] = np.where(
-        events["abnormal_return"] > 0,
-        "positive",
-        "negative",
+def add_future_returns(prices: pd.DataFrame) -> pd.DataFrame:
+    """Add future stock and abnormal returns for event-study horizons."""
+    out = prices.copy()
+    out = out.sort_values(["ticker", "date"]).reset_index(drop=True)
+
+    grouped = out.groupby("ticker", group_keys=False)
+
+    for horizon in FUTURE_HORIZONS:
+        out[f"future_{horizon}d_stock_return"] = grouped["return"].transform(
+            lambda s, h=horizon: compound_forward_return(s, h)
+        )
+
+        out[f"future_{horizon}d_abnormal_return"] = grouped[
+            "abnormal_return"
+        ].transform(lambda s, h=horizon: compound_forward_return(s, h))
+
+    return out
+
+
+def detect_events(features: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detect abnormal price-volume events.
+
+    Positive event:
+    - event_strength >= +2.0
+    - volume_shock >= 1.2
+
+    Negative event:
+    - event_strength <= -2.0
+    - volume_shock >= 1.2
+    """
+    base_filter = (
+        features["event_strength"].abs().ge(EVENT_STRENGTH_THRESHOLD)
+        & features["volume_shock"].ge(VOLUME_SHOCK_THRESHOLD)
+        & features["avg_20d_dollar_volume"].ge(MIN_AVG_DOLLAR_VOLUME)
     )
 
-    events["event_type"] = "abnormal_price_volume"
+    events = features[base_filter].copy()
+
+    events["event_direction"] = events["event_strength"].apply(
+        lambda value: "positive" if value > 0 else "negative"
+    )
+
+    events["event_type"] = events["event_direction"].map(
+        {
+            "positive": "positive_abnormal_price_volume",
+            "negative": "negative_abnormal_price_volume",
+        }
+    )
 
     keep_cols = [
-        "ticker",
         "date",
+        "ticker",
         "event_type",
         "event_direction",
-        "return",
-        "market_return",
-        "abnormal_return",
         "event_strength",
-        "rolling_20d_abnormal_vol",
-        "volume",
+        "abs_event_strength",
+        "abnormal_return",
         "volume_shock",
-        "pre_20d_return",
         "avg_20d_dollar_volume",
-        "future_5d_return",
-        "future_10d_return",
-        "future_20d_return",
+        "rolling_20d_abnormal_vol",
+        "future_5d_stock_return",
+        "future_10d_stock_return",
+        "future_20d_stock_return",
         "future_5d_abnormal_return",
         "future_10d_abnormal_return",
         "future_20d_abnormal_return",
     ]
 
-    events = events[keep_cols]
-    events = events.dropna().sort_values(["date", "ticker"]).reset_index(drop=True)
+    events = events[keep_cols].copy()
+    events = events.dropna(
+        subset=[
+            "future_5d_abnormal_return",
+            "future_10d_abnormal_return",
+            "future_20d_abnormal_return",
+        ]
+    )
 
-    return events
+    return events.sort_values(["date", "ticker"]).reset_index(drop=True)
 
 
-def summarize_events(events: pd.DataFrame) -> None:
-    """Print a simple summary of the event panel."""
+def print_event_summary(events: pd.DataFrame) -> None:
+    """Print basic event-panel summary."""
+    print(f"Saved event panel to: {EVENT_PANEL_PATH}")
     print()
     print("Event panel summary")
     print("-------------------")
     print(f"Events: {len(events):,}")
     print(f"Tickers: {events['ticker'].nunique()}")
-
-    if len(events) == 0:
-        return
-
     print(f"Date range: {events['date'].min().date()} to {events['date'].max().date()}")
+
     print()
     print("Direction counts:")
     print(events["event_direction"].value_counts().to_string())
+
     print()
-    print("Events by ticker:")
-    print(events["ticker"].value_counts().sort_index().to_string())
+    print("Top 20 events by ticker:")
+    print(events["ticker"].value_counts().head(20).to_string())
+
     print()
     print("Average future abnormal returns:")
     print(
@@ -248,20 +224,19 @@ def summarize_events(events: pd.DataFrame) -> None:
     )
 
 
-def build_event_panel() -> pd.DataFrame:
-    """Build and save the first event panel."""
-    prices = load_prices()
-    prices = add_market_returns(prices)
+def build_event_panel() -> None:
+    """Build and save abnormal price-volume event panel."""
+    prices = load_processed_prices()
+    prices = add_market_adjusted_returns(prices)
     features = add_event_features(prices)
+    features = add_future_returns(features)
+
     events = detect_events(features)
 
     EVENT_PANEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     events.to_csv(EVENT_PANEL_PATH, index=False)
 
-    print(f"Saved event panel to: {EVENT_PANEL_PATH}")
-    summarize_events(events)
-
-    return events
+    print_event_summary(events)
 
 
 if __name__ == "__main__":
