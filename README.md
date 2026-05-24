@@ -1,5 +1,7 @@
 # Event-Driven Equity Risk Lab
 
+![Tests](https://github.com/vizzzidane/event-driven-equity-risk-lab/actions/workflows/tests.yml/badge.svg)
+
 A systematic equity research project studying whether large stock-level information shocks create persistent post-event abnormal returns.
 
 The project focuses on **event-driven equity behaviour**, not broad market-regime allocation. Each observation is a `ticker + event_date` pair, and the core question is whether stocks drift or reverse after abnormal price-volume events.
@@ -433,6 +435,14 @@ event-driven-equity-risk-lab/
 │   ├── final_summary.py
 │   └── figures.py
 │
+├── tests/
+│   ├── conftest.py
+│   └── test_core_logic.py
+│
+├── .github/
+│   └── workflows/
+│       └── tests.yml
+│
 ├── docs/
 │   └── figures/
 │
@@ -459,6 +469,12 @@ Install dependencies:
 
 ```powershell
 pip install -r requirements.txt
+```
+
+Run tests:
+
+```powershell
+pytest
 ```
 
 Run the pipeline:
@@ -498,8 +514,8 @@ Key limitations:
 4. Sector neutrality has not yet been implemented.
 5. Results are heterogeneous across tickers and years.
 6. The optimized walk-forward is useful but still uses a small parameter grid.
-7. The project needs tests for core calculations.
-8. The project has not yet been validated on a broader equity universe.
+7. The project has not yet been validated on a broader equity universe.
+8. The test suite currently covers core logic, but not the full research pipeline.
 
 ## Next Steps
 
@@ -509,12 +525,11 @@ Planned improvements:
 2. Add actual earnings announcement dates and earnings surprise data.
 3. Add sector classification and sector-neutral attribution.
 4. Improve exposure control through stricter event spacing or capital allocation rules.
-5. Add unit tests for:
-   - abnormal return calculation
-   - event detection
-   - transaction cost model
-   - concurrency cap
-   - portfolio return construction
+5. Add more tests for:
+   - data loading
+   - event-study outputs
+   - walk-forward parameter selection
+   - figure generation
 6. Add a proper research report in `research/`.
 7. Compare against sector-adjusted and beta-adjusted abnormal returns.
 
