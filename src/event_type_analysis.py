@@ -5,6 +5,11 @@ from pathlib import Path
 import pandas as pd
 from scipy import stats
 
+try:
+    from src.universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
+except ModuleNotFoundError:
+    from universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
+
 
 EVENT_PANEL_PATH = Path("results/event_panel.csv")
 

@@ -6,7 +6,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
+try:
+    from src.universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
+except ModuleNotFoundError:
+    from universe import ACTIVE_STOCK_TICKERS, MARKET_TICKER
 
 
 PROCESSED_DATA_PATH = Path("data/processed/starter_prices_with_returns.csv")

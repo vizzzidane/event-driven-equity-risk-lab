@@ -6,7 +6,10 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-from universe import ALL_DOWNLOAD_TICKERS, ACTIVE_STOCK_TICKERS, MARKET_TICKER
+try:
+    from src.universe import ALL_DOWNLOAD_TICKERS, ACTIVE_STOCK_TICKERS, MARKET_TICKER
+except ModuleNotFoundError:
+    from universe import ALL_DOWNLOAD_TICKERS, ACTIVE_STOCK_TICKERS, MARKET_TICKER
 
 
 RAW_DATA_PATH = Path("data/raw/starter_prices.csv")
@@ -128,7 +131,7 @@ def download_one_ticker(
                 auto_adjust=False,
                 progress=False,
                 threads=False,
-            )
+                )
 
             return standardize_price_columns(raw, ticker)
 
