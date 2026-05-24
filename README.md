@@ -4,6 +4,8 @@
 
 A systematic equity research project studying whether large stock-level information shocks create persistent post-event abnormal returns.
 
+Full research write-up: [research/report.md](research/report.md)
+
 The project focuses on **event-driven equity behaviour**, not broad market-regime allocation. Each observation is a `ticker + event_date` pair, and the core question is whether stocks drift or reverse after abnormal price-volume events.
 
 ## Research Question
@@ -446,6 +448,9 @@ event-driven-equity-risk-lab/
 ├── docs/
 │   └── figures/
 │
+├── research/
+│   └── report.md
+│
 ├── data/
 │   ├── raw/
 │   └── processed/
@@ -530,8 +535,7 @@ Planned improvements:
    - event-study outputs
    - walk-forward parameter selection
    - figure generation
-6. Add a proper research report in `research/`.
-7. Compare against sector-adjusted and beta-adjusted abnormal returns.
+6. Compare against sector-adjusted and beta-adjusted abnormal returns.
 
 ## Key Takeaway
 
