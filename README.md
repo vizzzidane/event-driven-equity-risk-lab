@@ -1,36 +1,34 @@
 # Event-Driven Equity Risk Lab
 
-A systematic equity research project studying whether large post-event abnormal stock moves produce tradable drift or reversal after accounting for costs, liquidity, volatility, and market regime conditions.
+A systematic equity research project studying whether large stock-level information shocks create persistent post-event abnormal returns.
+
+The project focuses on **event-driven equity behaviour**, not broad market-regime allocation. Each observation is a `ticker + event_date` pair, and the core question is whether stocks drift or reverse after abnormal price-volume events.
 
 ## Research Question
 
-When do equity events produce persistent post-event abnormal returns, and when does the apparent signal disappear after costs, liquidity constraints, volatility, or market regime shifts?
+When do equity events produce tradable post-event abnormal returns, and when does the apparent signal disappear after transaction costs, liquidity constraints, placebo baselines, or failure-mode conditions?
 
-## Initial Scope
+## Core Finding
 
-Version 1 focuses on large abnormal price and volume events using daily US equity data.
+The strongest current result is an asymmetric event effect:
 
-The first milestone is to build an event panel where each row represents a stock-date event and includes:
+> Negative abnormal price-volume events show a medium-term reversal pattern.
 
-- event-day abnormal return
-- event-day volume shock
-- pre-event volatility
-- pre-event momentum
-- future 5-day return
-- future 10-day return
-- future 20-day return
+A strategy that buys after negative abnormal price-volume events and holds for around 30 trading days produced positive SPY-adjusted abnormal returns in both fixed-rule and optimized walk-forward validation.
 
-## Planned Pipeline
+The current best out-of-sample-style result is the optimized walk-forward test from 2018 to 2025:
 
-1. Data ingestion
-2. Return calculation
-3. Abnormal return estimation
-4. Event detection
-5. Event panel construction
-6. Event-study analysis
-7. Signal validation
-8. Basic backtest
-9. Transaction costs and liquidity filters
-10. Regime-aware risk layer
-11. Walk-forward validation
-12. Failure-mode analysis
+| Metric | Result |
+|---|---:|
+| Trades | 254 |
+| Win rate | 57.09% |
+| Average trade abnormal return | 1.81% |
+| Median trade abnormal return | 1.20% |
+| Total abnormal return | 140.63% |
+| Annualized abnormal Sharpe | 1.03 |
+| Max abnormal drawdown | -10.71% |
+
+All returns above are abnormal returns, calculated as:
+
+```text
+stock return - SPY return
