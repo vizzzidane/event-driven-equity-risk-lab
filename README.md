@@ -20,28 +20,34 @@ The strongest current result is an asymmetric event effect:
 
 The project began as a 10-stock MVP and was later expanded to an 88-stock liquid US equity universe. The negative-event reversal effect survived this universe expansion, but the larger universe also revealed an important deployment issue: without pacing, the strategy becomes almost continuously invested.
 
-The most realistic expanded-universe result currently comes from adding a global trade-pacing rule.
+The most realistic expanded-universe result currently comes from adding a global trade-pacing rule and validating it year by year.
 
-| Metric | Expanded-Universe Result |
+| Metric | Expanded Global-Paced Walk-Forward Result |
 |---|---:|
 | Universe size | 88 stocks |
 | Event panel | 12,266 events |
 | Strategy | Negative Event Reversal |
+| Test period | 2016-2025 |
 | Holding period | 30 trading days |
 | Transaction cost | 5 bps per side |
 | Max concurrent positions | 5 |
 | Global pacing | Minimum 10 calendar days between new trades |
-| Accepted trades | 368 |
-| Total abnormal return | 141.67% |
-| Annualized abnormal Sharpe | 0.77 |
-| Max abnormal drawdown | -14.19% |
-| Average gross exposure | 77.10% |
+| Trades | 327 |
+| Win rate | 51.38% |
+| Average trade abnormal return | 1.27% |
+| Median trade abnormal return | 0.13% |
+| Total abnormal return | 112.73% |
+| Annualized abnormal Sharpe | 0.73 |
+| Max abnormal drawdown | -14.21% |
+| Average gross exposure | 77.43% |
 
 All strategy returns above are abnormal returns, calculated as:
 
 ```text
 stock return - SPY return
 ```
+
+The expanded walk-forward result is positive overall, but not positive every year. The main weak years were 2019 and 2024, which reinforces the need for failure-mode analysis rather than treating the signal as universal.
 
 ## Key Figures
 
@@ -361,7 +367,55 @@ Global pacing directly controls how often the strategy can add new trades across
 
 The 10-calendar-day global pacing rule was the best current realism layer. It improved risk-adjusted performance, reduced drawdown, and lowered gross exposure.
 
-### 13. Fixed-Rule Walk-Forward Validation
+### 13. Expanded Global-Paced Walk-Forward Validation
+
+The expanded global-paced walk-forward test applies the current best fixed rule year by year from 2016 to 2025.
+
+Fixed rule:
+
+```text
+event_strength <= -2.0
+volume_shock >= 1.2
+hold = 30 trading days
+transaction cost = 5 bps per side
+max concurrent positions = 5
+minimum 10 calendar days between new trades globally
+```
+
+Full expanded global-paced walk-forward result:
+
+| Metric | Result |
+|---|---:|
+| Test period | 2016-2025 |
+| Trades | 327 |
+| Win rate | 51.38% |
+| Average trade abnormal return | 1.27% |
+| Median trade abnormal return | 0.13% |
+| Total abnormal return | 112.73% |
+| Annualized abnormal Sharpe | 0.73 |
+| Max abnormal drawdown | -14.21% |
+| Average gross exposure | 77.43% |
+
+Yearly results:
+
+| Year | Trades | Abnormal Return | Sharpe | Max Drawdown |
+|---:|---:|---:|---:|---:|
+| 2016 | 34 | 18.32% | 1.66 | -4.76% |
+| 2017 | 33 | 9.11% | 1.00 | -9.24% |
+| 2018 | 33 | 13.97% | 1.46 | -6.99% |
+| 2019 | 33 | -6.28% | -0.58 | -13.26% |
+| 2020 | 31 | 0.62% | 0.12 | -14.19% |
+| 2021 | 33 | 9.95% | 0.99 | -8.80% |
+| 2022 | 31 | 16.39% | 1.34 | -8.55% |
+| 2023 | 33 | 11.70% | 1.17 | -6.44% |
+| 2024 | 33 | -7.23% | -0.67 | -10.60% |
+| 2025 | 33 | 15.65% | 1.09 | -7.17% |
+
+This is the strongest validation layer in the project so far because it combines the expanded universe, fixed rules, abnormal returns, transaction costs, global pacing, and year-by-year walk-forward testing.
+
+The result is positive overall, but not positive every year. The weak years were 2019 and 2024, which highlights that the strategy has real failure modes and should not be presented as a universal anomaly.
+
+### 14. Earlier Fixed-Rule Walk-Forward Validation
 
 The earlier fixed-rule yearly test used:
 
@@ -384,9 +438,9 @@ Full fixed-rule walk-forward result:
 | Annualized abnormal Sharpe | 1.26 |
 | Max abnormal drawdown | -9.30% |
 
-The fixed rule produced positive abnormal returns in every yearly test slice.
+The fixed rule produced positive abnormal returns in every yearly test slice under the earlier research setup.
 
-### 14. Optimized Walk-Forward Validation
+### 15. Earlier Optimized Walk-Forward Validation
 
 For each test year, parameters were selected using only prior years.
 
@@ -434,7 +488,7 @@ The strategy is not universal. Its main failure modes are:
 |---|---|
 | Genuine repricing | Some negative events are not overreactions but the start of a real decline |
 | Ticker heterogeneity | Performance is uneven across stocks |
-| Stress/repricing years | 2020, 2022, and some later years show weaker behaviour depending on validation method |
+| Weak walk-forward years | 2019 and 2024 were negative in the expanded global-paced walk-forward test |
 | Cost drag | The strategy fails under very high transaction cost assumptions |
 | Over-filtering | Very strict event thresholds reduce the trade set and can remove the edge |
 | Persistent exposure | The expanded universe creates too many events unless pacing is added |
@@ -471,6 +525,7 @@ event-driven-equity-risk-lab/
 │   ├── global_pacing_sensitivity.py
 │   ├── walk_forward.py
 │   ├── walk_forward_optimized.py
+│   ├── walk_forward_expanded_paced.py
 │   ├── final_summary.py
 │   ├── figures.py
 │   └── expanded_figures.py
@@ -531,6 +586,7 @@ python src\event_type_analysis.py
 python src\backtest_abnormal.py
 python src\cooldown_sensitivity.py
 python src\global_pacing_sensitivity.py
+python src\walk_forward_expanded_paced.py
 python src\expanded_figures.py
 ```
 
@@ -564,7 +620,7 @@ Key limitations:
 3. The strategy still has meaningful exposure even after global pacing.
 4. Sector neutrality has not yet been implemented.
 5. Results are heterogeneous across tickers and years.
-6. The optimized walk-forward results currently reflect the earlier research setup and should be rerun under the expanded-universe/pacing framework.
+6. The expanded global-paced walk-forward is fixed-rule only and does not yet include parameter re-selection using prior years.
 7. The test suite currently covers core logic, but not the full research pipeline.
 8. The abnormal-return model uses SPY adjustment only, not beta-adjusted, sector-adjusted, or factor-adjusted returns.
 
@@ -572,7 +628,7 @@ Key limitations:
 
 Planned improvements:
 
-1. Rerun walk-forward validation under the expanded-universe global-pacing framework.
+1. Add expanded-universe walk-forward figures: equity curve, yearly returns, and drawdown.
 2. Add actual earnings announcement dates and earnings surprise data.
 3. Add sector classification and sector-neutral attribution.
 4. Compare SPY-adjusted, beta-adjusted, sector-adjusted, and factor-adjusted abnormal returns.
@@ -582,7 +638,7 @@ Planned improvements:
    - event-study outputs
    - walk-forward parameter selection
    - figure generation
-7. Update figures further with expanded-universe equity curves and drawdowns.
+7. Add parameter re-selection under the expanded-universe global-pacing framework.
 
 ## Key Takeaway
 
@@ -590,6 +646,6 @@ The project does not assume post-event drift exists. It tests the effect through
 
 The current evidence supports a narrower finding:
 
-> Negative abnormal price-volume events tend to reverse over a medium-term horizon. The effect survives expansion from 10 stocks to 88 liquid US equities, but naive deployment becomes too continuously invested. A global pacing rule improves the risk profile by reducing event clustering and gross exposure.
+> Negative abnormal price-volume events tend to reverse over a medium-term horizon. The effect survives expansion from 10 stocks to 88 liquid US equities, but naive deployment becomes too continuously invested. A 10-calendar-day global pacing rule improves the risk profile, and the expanded global-paced walk-forward remains positive over 2016-2025 despite weak years in 2019 and 2024.
 
 This is an event-driven equity research project, not a market-regime allocation project.
