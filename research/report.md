@@ -8,7 +8,7 @@ The initial MVP used 10 large-cap stocks. The project was later expanded to an 8
 
 The strongest current expanded-universe result is a negative-event reversal strategy with global trade pacing. The strategy buys after large negative abnormal price-volume events, holds for 30 trading days, uses SPY-adjusted abnormal returns, includes 5 bps per side transaction costs, caps positions at 5 concurrent trades, and requires at least 10 calendar days between new trades globally.
 
-Under this expanded-universe pacing rule, the strategy produced a 141.67% total abnormal return, 0.77 annualized abnormal Sharpe, -14.19% max abnormal drawdown, and 77.10% average gross exposure.
+Under the expanded global-paced walk-forward validation, the strategy produced a 112.73% total abnormal return, 0.73 annualized abnormal Sharpe, -14.21% max abnormal drawdown, and 77.43% average gross exposure over 2016-2025.
 
 The result is not presented as a universal stock-market anomaly. The project finds that the effect is asymmetric, heterogeneous across tickers, weaker in some periods, sensitive to costs, and vulnerable to event clustering. The current evidence supports a narrower conclusion: negative abnormal price-volume shocks often behave like temporary overreactions, but some represent genuine repricing and should not be treated as mean-reversion opportunities.
 
@@ -317,7 +317,9 @@ Yearly optimized results:
 
 The strategy remained positive in every optimized test year. The 30-day holding period was selected every year.
 
-These walk-forward results reflect the earlier research setup. A future improvement is to rerun walk-forward validation under the expanded-universe global-pacing framework.
+These optimized walk-forward results reflect the earlier research setup before expanded-universe pacing controls were added.
+
+This changes the interpretation of the project. The signal does not disappear after universe expansion, but deployment must control event clustering and persistent exposure.
 
 ## 12. Expanded Universe Validation
 
@@ -413,6 +415,54 @@ The updated expanded-universe candidate is:
 
 This changes the interpretation of the project. The signal does not disappear after universe expansion, but deployment must control event clustering and persistent exposure.
 
+### 14.1 Expanded Global-Paced Walk-Forward Validation
+
+The strongest current validation layer applies the expanded-universe global pacing rule in a fixed-rule yearly walk-forward test from 2016 to 2025.
+
+Fixed rule:
+
+```text
+event_strength <= -2.0
+volume_shock >= 1.2
+hold = 30 trading days
+transaction cost = 5 bps per side
+max concurrent positions = 5
+minimum 10 calendar days between new trades globally
+```
+
+Full expanded global-paced walk-forward result:
+
+| Metric | Result |
+|---|---:|
+| Test period | 2016-2025 |
+| Trades | 327 |
+| Win rate | 51.38% |
+| Average trade abnormal return | 1.27% |
+| Median trade abnormal return | 0.13% |
+| Total abnormal return | 112.73% |
+| Annualized abnormal Sharpe | 0.73 |
+| Max abnormal drawdown | -14.21% |
+| Average gross exposure | 77.43% |
+
+Yearly results:
+
+| Year | Trades | Abnormal Return | Sharpe | Max Drawdown |
+|---:|---:|---:|---:|---:|
+| 2016 | 34 | 18.32% | 1.66 | -4.76% |
+| 2017 | 33 | 9.11% | 1.00 | -9.24% |
+| 2018 | 33 | 13.97% | 1.46 | -6.99% |
+| 2019 | 33 | -6.28% | -0.58 | -13.26% |
+| 2020 | 31 | 0.62% | 0.12 | -14.19% |
+| 2021 | 33 | 9.95% | 0.99 | -8.80% |
+| 2022 | 31 | 16.39% | 1.34 | -8.55% |
+| 2023 | 33 | 11.70% | 1.17 | -6.44% |
+| 2024 | 33 | -7.23% | -0.67 | -10.60% |
+| 2025 | 33 | 15.65% | 1.09 | -7.17% |
+
+This is currently the strongest validation layer in the project because it combines expanded-universe testing, abnormal returns, transaction costs, position caps, global pacing, and fixed-rule yearly walk-forward validation.
+
+The result is positive overall, but not positive every year. The weak years were 2019 and 2024, showing that the strategy remains regime-sensitive and should not be interpreted as a universal anomaly.
+
 ## 15. Failure Modes
 
 The main failure modes are:
@@ -442,7 +492,7 @@ Current limitations:
 3. The strategy still has meaningful exposure even after global pacing.
 4. Sector-neutral attribution has not yet been implemented.
 5. The abnormal-return model uses SPY adjustment only, not beta-adjusted or factor-adjusted returns.
-6. The optimized walk-forward test currently reflects the earlier research setup, not the expanded-universe global-pacing framework.
+6. The optimized parameter-selection walk-forward framework has not yet been rerun under the expanded-universe global-pacing setup.
 7. Results are heterogeneous across tickers and years.
 8. The project has not yet been tested on a full production-grade equity universe.
 9. The test suite covers core logic, but not the full research pipeline.
@@ -451,10 +501,10 @@ Current limitations:
 
 Planned extensions:
 
-1. Rerun walk-forward validation under the expanded-universe global-pacing framework.
+1. Add sector classification and sector attribution analysis.
 2. Add actual earnings announcement dates.
 3. Add earnings surprise and analyst revision data.
-4. Add sector classification and sector-neutral attribution.
+4. Add sector-neutral portfolio construction and sector-adjusted abnormal returns.
 5. Compare SPY-adjusted, beta-adjusted, sector-adjusted, and factor-adjusted abnormal returns.
 6. Add stronger exposure controls through monthly trade budgets or volatility targeting.
 7. Add event spacing rules that combine same-ticker cooldown and global pacing.
@@ -470,10 +520,10 @@ The original 10-stock MVP showed strong early evidence for the effect. The later
 
 The expanded universe also revealed an important deployment issue. Without pacing, the strategy becomes almost continuously invested, with an active day ratio near 99% and average gross exposure near 96%. This makes the naive expanded strategy less realistic.
 
-The best current expanded-universe realism layer is a 10-calendar-day global pacing rule. It improves the abnormal Sharpe from 0.63 to 0.77, reduces max drawdown from -26.08% to -14.19%, and lowers average gross exposure from 95.74% to 77.10%.
+The strongest current validation layer is the expanded global-paced walk-forward framework. Using abnormal returns, transaction costs, position caps, and a minimum 10-calendar-day gap between new trades globally, the strategy produced a 112.73% total abnormal return, 0.73 annualized abnormal Sharpe, -14.21% max abnormal drawdown, and 77.43% average gross exposure over 2016-2025.
 
 The current conclusion is:
 
-> Negative abnormal price-volume events tend to reverse over a medium-term horizon. The effect survives expansion from 10 stocks to 88 liquid US equities, but naive deployment becomes too continuously invested. A global pacing rule improves the risk profile by reducing event clustering and gross exposure.
+> Negative abnormal price-volume events tend to reverse over a medium-term horizon. The effect survives expansion from 10 stocks to 88 liquid US equities, but naive deployment becomes too continuously invested. Global pacing, transaction costs, position caps, and fixed-rule walk-forward validation materially improve realism while preserving a positive long-term abnormal return profile.
 
 This makes the project a credible event-driven equity research system, while leaving clear room for future improvements in actual event data, sector controls, factor adjustment, walk-forward validation under the expanded universe, and stronger exposure management.
