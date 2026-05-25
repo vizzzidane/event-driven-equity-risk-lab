@@ -107,6 +107,14 @@ The expanded walk-forward result is positive overall, but not positive every yea
 
 ![Threshold Sensitivity](docs/figures/threshold_sensitivity.png)
 
+### Sector Attribution: Total Net Abnormal Return
+
+![Sector Total Return](docs/figures/sector_total_return.png)
+
+### Sector Attribution: Trade Win Rate
+
+![Sector Win Rate](docs/figures/sector_win_rate.png)
+
 ## Current Best Strategy Candidate
 
 | Component | Rule |
@@ -635,6 +643,28 @@ Key limitations:
 6. The expanded global-paced walk-forward is fixed-rule only and does not yet include parameter re-selection using prior years.
 7. The test suite currently covers core logic, but not the full research pipeline.
 8. The abnormal-return model uses SPY adjustment only, not beta-adjusted, sector-adjusted, or factor-adjusted returns.
+
+## Sector Attribution Analysis
+
+Sector attribution analysis was performed on the expanded global-paced walk-forward trade ledger.
+
+Main findings:
+
+| Sector | Observation |
+|---|---|
+| Technology | Strongest overall contributor |
+| Financials | Strong secondary contributor |
+| Energy | High-return but lower-consistency sector |
+| Materials | Strong hit rate and positive total return |
+| Industrials | Mildly positive overall |
+| Utilities | Structurally weak |
+| Consumer Staples | Negative overall contribution |
+
+The reversal effect appears strongest in cyclical, volatile, and sentiment-sensitive sectors such as Technology, Financials, Energy, and Materials.
+
+Defensive sectors such as Utilities and Consumer Staples performed materially worse.
+
+This suggests the signal is not purely a mega-cap technology artifact, but instead may be linked to temporary liquidity shocks and sentiment overreactions that occur more strongly in cyclical sectors.
 
 ## Next Steps
 

@@ -1,0 +1,110 @@
+SECTOR_MAP = {
+    # Technology
+    "AAPL": "Technology",
+    "MSFT": "Technology",
+    "NVDA": "Technology",
+    "AMD": "Technology",
+    "AVGO": "Technology",
+    "CSCO": "Technology",
+    "ORCL": "Technology",
+    "ADBE": "Technology",
+    "CRM": "Technology",
+    "INTC": "Technology",
+    "QCOM": "Technology",
+    "TXN": "Technology",
+    "ADI": "Technology",
+    "AMAT": "Technology",
+    "KLAC": "Technology",
+    "LRCX": "Technology",
+    "MRVL": "Technology",
+    "MU": "Technology",
+    "NOW": "Technology",
+    "IBM": "Technology",
+
+    # Communication Services
+    "GOOGL": "Communication Services",
+    "GOOG": "Communication Services",
+    "META": "Communication Services",
+    "NFLX": "Communication Services",
+    "DIS": "Communication Services",
+    "TMUS": "Communication Services",
+    "VZ": "Communication Services",
+    "T": "Communication Services",
+    "CMCSA": "Communication Services",
+
+    # Consumer Discretionary
+    "AMZN": "Consumer Discretionary",
+    "TSLA": "Consumer Discretionary",
+    "HD": "Consumer Discretionary",
+    "MCD": "Consumer Discretionary",
+    "NKE": "Consumer Discretionary",
+    "SBUX": "Consumer Discretionary",
+    "LOW": "Consumer Discretionary",
+    "UBER": "Consumer Discretionary",
+
+    # Consumer Staples
+    "WMT": "Consumer Staples",
+    "COST": "Consumer Staples",
+    "KO": "Consumer Staples",
+    "PEP": "Consumer Staples",
+    "PG": "Consumer Staples",
+    "TGT": "Consumer Staples",
+    "PM": "Consumer Staples",
+
+    # Financials
+    "JPM": "Financials",
+    "BAC": "Financials",
+    "WFC": "Financials",
+    "GS": "Financials",
+    "MS": "Financials",
+    "BLK": "Financials",
+    "AXP": "Financials",
+    "V": "Financials",
+    "MA": "Financials",
+    "C": "Financials",
+    "SCHW": "Financials",
+    "SPGI": "Financials",
+
+    # Healthcare
+    "JNJ": "Healthcare",
+    "PFE": "Healthcare",
+    "MRK": "Healthcare",
+    "ABBV": "Healthcare",
+    "UNH": "Healthcare",
+    "LLY": "Healthcare",
+    "TMO": "Healthcare",
+    "DHR": "Healthcare",
+    "ABT": "Healthcare",
+    "BMY": "Healthcare",
+
+    # Industrials
+    "CAT": "Industrials",
+    "BA": "Industrials",
+    "HON": "Industrials",
+    "GE": "Industrials",
+    "UPS": "Industrials",
+    "RTX": "Industrials",
+    "DE": "Industrials",
+    "UNP": "Industrials",
+    "ETN": "Industrials",
+    "LMT": "Industrials",
+
+    # Energy
+    "XOM": "Energy",
+    "CVX": "Energy",
+    "SLB": "Energy",
+    "COP": "Energy",
+    "EOG": "Energy",
+
+    # Materials
+    "LIN": "Materials",
+    "FCX": "Materials",
+    "NEM": "Materials",
+    "APD": "Materials",
+    "SHW": "Materials",
+
+    # Utilities
+    "NEE": "Utilities",
+    "DUK": "Utilities",
+    "SO": "Utilities",
+}

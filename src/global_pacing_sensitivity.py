@@ -509,3 +509,47 @@ def run_global_pacing_sensitivity() -> None:
 
 if __name__ == "__main__":
     run_global_pacing_sensitivity()
+
+
+def test_global_pacing_enforces_minimum_trade_spacing() -> None:
+    from src.global_pacing_sensitivity import build_candidate_trades
+
+    prices = pd.DataFrame(
+        {
+            "ticker": ["AAPL"] * 40,
+            "date": pd.date_range("2020-01-01", periods=40, freq="D"),
+            "adj_close": np.linspace(100, 120, 40),
+            "abnormal_return": np.full(40, 0.001),
+        }
+    )
+
+    events = pd.DataFrame(
+        {
+            "ticker": ["AAPL", "AAPL", "AAPL"],
+            "date": pd.to_datetime(
+                [
+                    "2020-01-01",
+                    "2020-01-05",
+                    "2020-01-20",
+                ]
+            ),
+            "event_strength": [-2.5, -2.5, -2.5],
+            "volume_shock": [1.5, 1.5, 1.5],
+        }
+    )
+
+    trades = build_candidate_trades(
+        prices=prices,
+        events=events,
+        min_days_between_new_trades=10,
+    )
+
+    accepted_event_dates = trades["event_date"].sort_values().tolist()
+
+    assert len(accepted_event_dates) == 2
+
+    spacing_days = (
+        accepted_event_dates[1] - accepted_event_dates[0]
+    ).days
+
+    assert spacing_days >= 10

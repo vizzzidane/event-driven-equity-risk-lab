@@ -63,6 +63,15 @@ class Trade:
     volume_shock: float
     transaction_cost_bps_round_trip: float
 
+def split_train_test_year(
+    df: pd.DataFrame,
+    test_year: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    train_df = df[df["date"].dt.year < test_year].copy()
+
+    test_df = df[df["date"].dt.year == test_year].copy()
+
+    return train_df, test_df
 
 def load_prices(path: Path = PROCESSED_DATA_PATH) -> pd.DataFrame:
     """Load processed stock and benchmark data."""
