@@ -71,6 +71,18 @@ The expanded walk-forward result is positive overall, but not positive every yea
 
 ![Same-Ticker Cooldown Sensitivity](docs/figures/cooldown_sensitivity.png)
 
+### Expanded Global-Paced Walk-Forward Equity Curve
+
+![Expanded Paced Equity Curve](docs/figures/expanded_paced_equity_curve.png)
+
+### Expanded Global-Paced Walk-Forward Yearly Returns
+
+![Expanded Paced Yearly Returns](docs/figures/expanded_paced_yearly_returns.png)
+
+### Expanded Global-Paced Walk-Forward Drawdown
+
+![Expanded Paced Drawdown](docs/figures/expanded_paced_drawdown.png)
+
 ### Optimized Walk-Forward Equity Curve
 
 ![Optimized Walk-Forward Equity Curve](docs/figures/optimized_equity_curve.png)
@@ -628,9 +640,9 @@ Key limitations:
 
 Planned improvements:
 
-1. Add expanded-universe walk-forward figures: equity curve, yearly returns, and drawdown.
+1. Add sector classification and sector attribution analysis.
 2. Add actual earnings announcement dates and earnings surprise data.
-3. Add sector classification and sector-neutral attribution.
+3. Add sector-neutral attribution and sector-adjusted abnormal returns.
 4. Compare SPY-adjusted, beta-adjusted, sector-adjusted, and factor-adjusted abnormal returns.
 5. Improve exposure control through monthly trade budgets or volatility targeting.
 6. Add more tests for:
